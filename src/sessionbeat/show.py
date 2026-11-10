@@ -1,9 +1,12 @@
+import re
 import shlex
 from datetime import datetime
 
 from sessionbeat.board import Board, TurnEndedState
+from sessionbeat.wire import CONTROL_CHAR_CLASS
 
 EMPTY = "-"
+CONTROL_CHAR = re.compile(f"[{CONTROL_CHAR_CLASS}]")
 
 
 def _clock(moment: datetime) -> str:
@@ -71,6 +74,14 @@ def _words(board: Board) -> list[str]:
     return [f"{label}: {meaning}" for label, meaning in board.terms.items()]
 
 
+def _escape_controls(text: str) -> str:
+    def show(match: re.Match[str]) -> str:
+        char = match.group()
+        return char if char == "\n" else f"\\x{ord(char):02x}"
+
+    return CONTROL_CHAR.sub(show, text)
+
+
 def render_text(board: Board) -> str:
     sections = [
         ("Your turn", _your_turn(board)),
@@ -83,4 +94,4 @@ def render_text(board: Board) -> str:
     for heading, lines in sections:
         body = [f"  {line}" if line else "" for line in lines] or [f"  {EMPTY}"]
         blocks.append("\n".join([heading, *body]))
-    return "\n\n".join(blocks)
+    return _escape_controls("\n\n".join(blocks))

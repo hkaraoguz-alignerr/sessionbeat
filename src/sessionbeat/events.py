@@ -11,6 +11,7 @@ from pydantic import (
 
 from sessionbeat.wire import (
     CARD_TEXT_MAX,
+    CONTROL_CHAR_CLASS,
     LABEL_MAX,
     PLAN_STEPS_MAX,
     SHORT_TEXT_MAX,
@@ -18,9 +19,17 @@ from sessionbeat.wire import (
     Kind,
 )
 
-ShortText = Annotated[str, StringConstraints(min_length=1, max_length=SHORT_TEXT_MAX)]
-CardText = Annotated[str, StringConstraints(min_length=1, max_length=CARD_TEXT_MAX)]
-Label = Annotated[str, StringConstraints(min_length=1, max_length=LABEL_MAX)]
+NO_CONTROL_CHARS = f"^[^{CONTROL_CHAR_CLASS}]*$"
+
+ShortText = Annotated[
+    str, StringConstraints(min_length=1, max_length=SHORT_TEXT_MAX, pattern=NO_CONTROL_CHARS)
+]
+CardText = Annotated[
+    str, StringConstraints(min_length=1, max_length=CARD_TEXT_MAX, pattern=NO_CONTROL_CHARS)
+]
+Label = Annotated[
+    str, StringConstraints(min_length=1, max_length=LABEL_MAX, pattern=NO_CONTROL_CHARS)
+]
 
 
 class EventBase(BaseModel):

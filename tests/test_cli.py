@@ -1,5 +1,6 @@
 import subprocess
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -53,6 +54,17 @@ def test_agent_session_flow(capsys: pytest.CaptureFixture[str]) -> None:
     assert any(line.lstrip().startswith("✗") for line in text.splitlines())
     assert any(line.lstrip().startswith("▶") for line in text.splitlines())
 
+    wire.append_record(
+        "demo",
+        wire.AgentName.CLAUDE_CODE,
+        wire.Kind.TURN_FAILED,
+        {"error": "bad\x1b]0;x", "message": ""},
+        datetime.now(UTC),
+    )
+    escaped = render_text(load_board())
+    assert "\\x1b]0;x" in escaped
+    assert "\x1b" not in escaped
+
 
 @pytest.mark.parametrize(
     ("argv", "env_set"),
@@ -62,6 +74,7 @@ def test_agent_session_flow(capsys: pytest.CaptureFixture[str]) -> None:
         (["check", "9", "--", "true"], True),
         (["step", "9"], True),
         (["goal", "x" * 121], True),
+        (["goal", "line one\nline two"], True),
         (["goal", "fine"], False),
     ],
 )

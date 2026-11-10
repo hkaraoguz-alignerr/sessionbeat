@@ -39,6 +39,7 @@ CARD_TEXT_MAX = 240
 LABEL_MAX = 16
 PLAN_STEPS_MAX = 12
 HOOK_TEXT_MAX = 300
+CONTROL_CHAR_CLASS = r"\x00-\x1f\x7f-\x9f"
 
 _SESSION_ID = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
 
