@@ -1,9 +1,12 @@
 """Log wire format. Standard library only: the hook imports this and must start fast."""
 
+import fcntl
 import hashlib
 import json
 import os
 import re
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
@@ -61,6 +64,19 @@ def _make_log_dir(path: Path) -> None:
     # `parents=True` applies the mode to the leaf only, so each level is created explicitly.
     home().mkdir(mode=0o700, parents=True, exist_ok=True)
     path.parent.mkdir(mode=0o700, exist_ok=True)
+
+
+@contextmanager
+def locked_log(session_id: str) -> Iterator[None]:
+    """Hold the session log's exclusive lock; closing the descriptor releases it."""
+    path = session_log_path(session_id)
+    _make_log_dir(path)
+    fd = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        os.close(fd)
 
 
 def append_record(

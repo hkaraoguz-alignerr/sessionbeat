@@ -3,7 +3,8 @@ import os
 import re
 import subprocess
 import sys
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TypeVar
@@ -66,6 +67,7 @@ class AgentSession:
     def __init__(self, agent: wire.AgentName, session_id: str) -> None:
         self.agent = agent
         self.session_id = session_id
+        self._locked = False
 
     @classmethod
     def from_env(cls) -> "AgentSession":
@@ -78,8 +80,26 @@ class AgentSession:
     def board(self) -> Board:
         return _load_board(self.session_id)
 
+    @contextmanager
+    def transaction(self) -> Iterator[None]:
+        """Hold the log lock so a number read from the board is still right when appended."""
+        if self._locked:
+            raise RuntimeError(f"transaction for session {self.session_id!r} is already open")
+        _log_path(self.session_id)
+        with wire.locked_log(self.session_id):
+            self._locked = True
+            try:
+                yield
+            finally:
+                self._locked = False
+
     def write(self, event_type: type[_E], **fields: object) -> _E:
-        """Build the event first so its validators enforce the limits, then append it."""
+        """Build the event first so its validators enforce the limits, then append it.
+
+        Only inside `transaction`, the one place the log lock is taken.
+        """
+        if not self._locked:
+            raise RuntimeError(f"write to session {self.session_id!r} outside a transaction")
         try:
             event = event_type.model_validate(
                 {"at": datetime.now(UTC), "agent": self.agent, **fields}
@@ -104,34 +124,39 @@ def _describe(error: ValidationError) -> str:
 
 def _goal(args: argparse.Namespace) -> int:
     session = AgentSession.from_env()
-    number = len(session.board().goals) + 1
-    session.write(GoalSet, text=args.text)
+    with session.transaction():
+        number = len(session.board().goals) + 1
+        session.write(GoalSet, text=args.text)
     print(f"goal {number}")
     return 0
 
 
 def _plan(args: argparse.Namespace) -> int:
-    AgentSession.from_env().write(PlanSet, steps=args.steps)
+    session = AgentSession.from_env()
+    with session.transaction():
+        session.write(PlanSet, steps=args.steps)
     return 0
 
 
 def _step(args: argparse.Namespace) -> int:
     session = AgentSession.from_env()
-    if args.which == "done":
-        session.write(StepsDone)
-        return 0
-    steps = len(session.board().steps)
-    if not 1 <= args.which <= steps:
-        raise Refusal(f"step {args.which} is past the end of the plan ({steps} steps)")
-    session.write(StepStarted, number=args.which)
+    with session.transaction():
+        if args.which == "done":
+            session.write(StepsDone)
+            return 0
+        steps = len(session.board().steps)
+        if not 1 <= args.which <= steps:
+            raise Refusal(f"step {args.which} is past the end of the plan ({steps} steps)")
+        session.write(StepStarted, number=args.which)
     return 0
 
 
 def _check(args: argparse.Namespace) -> int:
     session = AgentSession.from_env()
-    goals = len(session.board().goals)
-    if not 1 <= args.goal <= goals:
-        raise Refusal(f"goal {args.goal} does not exist ({goals} goals)")
+    with session.transaction():
+        goals = len(session.board().goals)
+        if not 1 <= args.goal <= goals:
+            raise Refusal(f"goal {args.goal} does not exist ({goals} goals)")
     command: list[str] = args.command
     first = command[0]
     if first in SHELL_BUILTINS or ENV_ASSIGNMENT.match(first):
@@ -144,18 +169,23 @@ def _check(args: argparse.Namespace) -> int:
     except (FileNotFoundError, PermissionError) as error:
         print(f"sessionbeat: cannot start {first!r}: {error}", file=sys.stderr)
         return NOT_STARTED_EXIT
-    session.write(CheckRan, goal=args.goal, argv=command, exit_code=returncode)
+    with session.transaction():
+        session.write(CheckRan, goal=args.goal, argv=command, exit_code=returncode)
     # A negative code means the child died from a signal; report it the way a shell would.
     return 128 - returncode if returncode < 0 else returncode
 
 
 def _term(args: argparse.Namespace) -> int:
-    AgentSession.from_env().write(TermDefined, label=args.label, meaning=args.meaning)
+    session = AgentSession.from_env()
+    with session.transaction():
+        session.write(TermDefined, label=args.label, meaning=args.meaning)
     return 0
 
 
 def _card(args: argparse.Namespace) -> int:
-    AgentSession.from_env().write(CardWritten, before=args.before, after=args.after)
+    session = AgentSession.from_env()
+    with session.transaction():
+        session.write(CardWritten, before=args.before, after=args.after)
     return 0
 
 
@@ -250,3 +280,7 @@ def main(argv: Sequence[str] | None = None) -> None:
             print(f"sessionbeat: {line}", file=sys.stderr)
         raise SystemExit(USAGE_EXIT) from None
     raise SystemExit(code)
+
+
+if __name__ == "__main__":
+    main()

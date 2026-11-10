@@ -1,3 +1,4 @@
+import subprocess
 import sys
 from pathlib import Path
 
@@ -75,3 +76,14 @@ def test_refusals_exit_2_and_write_nothing(
         cli.main(argv)
     assert raised.value.code == 2
     assert wire.session_log_path("demo").read_bytes() == before
+
+
+def test_parallel_goals_get_distinct_numbers() -> None:
+    command = [sys.executable, "-m", "sessionbeat.cli", "goal"]
+    processes = [
+        subprocess.Popen([*command, f"goal {i}"], stdout=subprocess.PIPE, text=True)
+        for i in range(5)
+    ]
+    printed = [process.communicate()[0].strip() for process in processes]
+    assert all(process.returncode == 0 for process in processes)
+    assert sorted(printed) == [f"goal {n}" for n in range(1, 6)]
