@@ -3,9 +3,12 @@
 A local status board that shows where a coding agent's task stands, so you do
 not have to read the transcript or ask.
 
-> **Status: design accepted, build starting.** There is nothing to install yet.
-> The design is in [ADR 0001](docs/adr/0001-status-board-design.md) and the
-> build order is in the [roadmap](ROADMAP.md).
+> **Status: the core is built; there is nothing to install yet.** The log, the
+> board, the hook program and the `sessionbeat` commands exist. Hooks are not
+> installed into an agent automatically yet, and the web page is not built yet:
+> the board is read as text with `sessionbeat show`. The design is in
+> [ADR 0001](docs/adr/0001-status-board-design.md) and the build order is in
+> the [roadmap](ROADMAP.md).
 
 ## What it will show
 
@@ -34,6 +37,29 @@ mid-task:
   `sessionbeat check 1 -- pytest tests/auth`.
 - **The log is the only state.** The page is rebuilt from it, so a session can
   be replayed.
+
+## Try it
+
+From a checkout, with an agent session id of your choice and a scratch home
+folder so nothing lands in `~/.sessionbeat`:
+
+```sh
+export SESSIONBEAT_HOME=$(mktemp -d) CLAUDE_CODE_SESSION_ID=demo
+
+uv run sessionbeat goal 'Session survives 30 min idle'      # prints: goal 1
+uv run sessionbeat plan 'Read code' 'Fix timeout' 'Add test'
+uv run sessionbeat step 2
+uv run sessionbeat check 1 -- python3 -c 'raise SystemExit(0)'
+uv run sessionbeat term D6 'the sixth design decision'
+uv run sessionbeat card --before 'Idle sessions expire' --after 'Idle sessions stay alive'
+
+uv run sessionbeat show
+```
+
+`check` runs one program with no shell and records its real exit code, so
+`cd`, `export`, `source` and `VAR=value` prefixes are refused. `show` prints
+the board as plain text for the current session, or for the session id you
+give it.
 
 ## Who it is for
 
