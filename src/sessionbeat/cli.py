@@ -23,6 +23,7 @@ from sessionbeat.events import (
     StepStarted,
     TermDefined,
 )
+from sessionbeat.show import render_text
 
 USAGE_EXIT = 2
 NOT_STARTED_EXIT = 127
@@ -158,6 +159,28 @@ def _card(args: argparse.Namespace) -> int:
     return 0
 
 
+def _latest_session_id() -> str:
+    sessions = wire.home() / "sessions"
+    logs = sorted(sessions.glob("*.jsonl"), key=lambda path: path.stat().st_mtime)
+    if not logs:
+        raise Refusal(f"no session logs found in {sessions}")
+    return logs[-1].stem
+
+
+def _show(args: argparse.Namespace) -> int:
+    if args.session_id is not None:
+        session_id: str = args.session_id
+    elif (found := _session_from_env()) is not None:
+        session_id = found[1]
+    else:
+        session_id = _latest_session_id()
+    path = _log_path(session_id)
+    if not path.exists():
+        raise Refusal(f"no log for session {session_id!r} at {path}")
+    print(render_text(_load_board(session_id)))
+    return 0
+
+
 def _step_argument(text: str) -> int | str:
     if text == "done":
         return text
@@ -199,6 +222,10 @@ def _build_parser() -> argparse.ArgumentParser:
     card.add_argument("--before", required=True)
     card.add_argument("--after", required=True)
     card.set_defaults(run=_card)
+
+    show = commands.add_parser("show", help="print the board as text")
+    show.add_argument("session_id", nargs="?", metavar="SESSION_ID")
+    show.set_defaults(run=_show)
 
     return parser
 

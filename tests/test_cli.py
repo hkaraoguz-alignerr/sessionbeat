@@ -6,6 +6,7 @@ import pytest
 from sessionbeat import cli, wire
 from sessionbeat.board import Board
 from sessionbeat.eventlog import read_events
+from sessionbeat.show import render_text
 
 
 @pytest.fixture(autouse=True)
@@ -46,6 +47,10 @@ def test_agent_session_flow(capsys: pytest.CaptureFixture[str]) -> None:
     assert board.current_step == 2
     assert board.terms == {"D6": "the sixth decision"}
     assert len(board.cards) == 1
+
+    text = render_text(board)
+    assert any(line.lstrip().startswith("✗") for line in text.splitlines())
+    assert any(line.lstrip().startswith("▶") for line in text.splitlines())
 
 
 @pytest.mark.parametrize(
