@@ -9,12 +9,16 @@ Fact = tuple[Kind, dict[str, object]]
 FILE_EDIT_TOOLS = frozenset({"Edit", "Write"})
 
 
+def _storable(value: str) -> str:
+    # A lone surrogate (half an emoji) cannot be stored as UTF-8 and would break reading the log.
+    return value.encode("utf-8", "surrogatepass").decode("utf-8", "replace")
+
+
 def string_field(container: dict[str, object], key: str) -> str:
     value = container[key]
     if not isinstance(value, str):
         raise TypeError(f"Payload key {key!r} must be a string, got {type(value).__name__}")
-    # A lone surrogate (half an emoji) cannot be stored as UTF-8 and would break reading the log.
-    return value.encode("utf-8", "surrogatepass").decode("utf-8", "replace")
+    return _storable(value)
 
 
 def _dict(container: dict[str, object], key: str) -> dict[str, object]:
@@ -45,7 +49,7 @@ def _background(payload: dict[str, object]) -> list[str] | None:
                 f"Payload key 'background_tasks'[{index}].description must be a string, "
                 f"got {type(description).__name__}"
             )
-        descriptions.append(description)
+        descriptions.append(_storable(description))
     return descriptions
 
 

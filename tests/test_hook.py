@@ -33,7 +33,7 @@ def test_payload_sequence_becomes_board(tmp_path, monkeypatch):
             **base,
             "hook_event_name": "Stop",
             "last_assistant_message": "done \ud83d half",
-            "background_tasks": [{"description": "dev server"}],
+            "background_tasks": [{"description": "dev server \ud83d"}],
         },
         {**base, "hook_event_name": "UserPromptSubmit", "prompt": "next"},
         {
