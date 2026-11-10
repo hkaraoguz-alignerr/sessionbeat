@@ -43,7 +43,10 @@ _SESSION_ID = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
 def home() -> Path:
     override = os.environ.get("SESSIONBEAT_HOME")
     if override is not None:
-        return Path(override)
+        path = Path(override)
+        if not path.is_absolute():
+            raise ValueError(f"SESSIONBEAT_HOME must be an absolute path, got {override!r}")
+        return path
     return Path.home() / ".sessionbeat"
 
 
@@ -54,6 +57,12 @@ def session_log_path(session_id: str) -> Path:
     return home() / "sessions" / f"{session_id}.jsonl"
 
 
+def _make_log_dir(path: Path) -> None:
+    # `parents=True` applies the mode to the leaf only, so each level is created explicitly.
+    home().mkdir(mode=0o700, parents=True, exist_ok=True)
+    path.parent.mkdir(mode=0o700, exist_ok=True)
+
+
 def append_record(
     session_id: str,
     agent: AgentName,
@@ -62,14 +71,19 @@ def append_record(
     at: datetime,
 ) -> None:
     path = session_log_path(session_id)
-    line = json.dumps({"at": at.isoformat(), "agent": agent, "kind": kind, **fields}) + "\n"
-    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    line = (
+        json.dumps({"at": at.isoformat(), "agent": agent, "kind": kind, **fields}) + "\n"
+    ).encode("utf-8")
+    _make_log_dir(path)
     # One os.write on an O_APPEND descriptor: concurrent writers cannot interleave inside a line.
+    # A short write leaves a torn line that the next append would join onto, so it is an error.
     fd = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600)
     try:
-        os.write(fd, line.encode("utf-8"))
+        written = os.write(fd, line)
     finally:
         os.close(fd)
+    if written != len(line):
+        raise OSError(f"Short write to {path}: wrote {written} of {len(line)} bytes")
 
 
 def cut(text: str) -> tuple[str, bool]:
