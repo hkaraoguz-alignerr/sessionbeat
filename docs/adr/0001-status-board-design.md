@@ -75,7 +75,10 @@ from one person over five weeks. The ranking is a guide, not a measurement.
   arguments.
 - `check` starts the command with no shell and refuses `cd`, `export`,
   `source`, `.` and `NAME=value` as the command name. Otherwise
-  `check 1 -- cd x && pytest` would record the exit code of `cd` alone.
+  `check 1 -- cd x && pytest` would record the exit code of `cd` alone. It
+  also refuses shell programs (`sh`, `bash`, `zsh`, `dash`, `ksh`, `fish`).
+  These refusals guard against accidents. They do not stop an agent that is
+  trying to cheat.
 - `check` passes output straight through, exits with the command's own exit
   code, and writes its event only when the command finishes. The board shows
   the exact command next to the result.
@@ -182,6 +185,10 @@ And on a real Claude Code session:
   background and its result arrives late.
 - `/clear` and forks create a new session id and therefore a new board.
 - The agent can write to the log file. The board is a view, not an audit record.
+- A corrupt line in the middle of a log stops that session's board from being
+  built. A half-written last line is skipped, but the next write joins onto it.
+- Agent-written text cannot contain control characters, and the text view
+  shows any control character from other sources in escaped form.
 - No Windows support in the first release.
 
 ## How we will know it works
