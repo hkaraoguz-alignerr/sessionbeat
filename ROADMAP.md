@@ -21,7 +21,8 @@ in build order. Each one ships with its tests.
    `Host` check and the URL token.
 8. **Replay**: rebuild a board from a log up to a chosen point.
 9. **Install, uninstall and doctor** for Claude Code.
-10. **Codex adapter and install**, including the hook trust step.
+10. **Codex adapter and install**, including the hook trust step and the
+    instructions text for `AGENTS.md`.
 11. **Reminder**: one nudge when files have changed and the board has no goal.
 12. **Acceptance tests** from the ADR, with the results written up.
 

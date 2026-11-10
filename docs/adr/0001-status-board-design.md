@@ -63,6 +63,44 @@ from one person over five weeks. The ranking is a guide, not a measurement.
 8. **Display: a local web page** served on `127.0.0.1`, with a `Host` header
    check and a token in the URL. Agent-written text is rendered as text.
 
+### Rules that follow from the decision
+
+**`check` must not become a way around the user's permissions.**
+
+- Install adds one allow rule per writing command: `goal`, `plan`, `step`,
+  `term` and `card`. It adds none for `check`, so the agent's normal
+  permission prompt shows the full command. A blanket `Bash(sessionbeat *)`
+  rule would let `sessionbeat check 1 -- <any command>` run unprompted, which
+  the Claude Code permissions page warns about for commands that run their
+  arguments.
+- `check` starts the command with no shell and refuses `cd`, `export`,
+  `source`, `.` and `NAME=value` as the command name. Otherwise
+  `check 1 -- cd x && pytest` would record the exit code of `cd` alone.
+- `check` passes output straight through, exits with the command's own exit
+  code, and writes its event only when the command finishes. The board shows
+  the exact command next to the result.
+
+**"Your turn" is set and cleared by direct events only.**
+
+- Every `Stop` sets it, with the agent's last message. If background tasks are
+  still running, the banner names them. A missing task list means unknown, not
+  zero.
+- `StopFailure` sets it, with the error.
+- `PermissionRequest` sets a pending request keyed by tool name and input. A
+  later `PostToolUse` or `PostToolUseFailure` with the same pair removes it.
+- `UserPromptSubmit` clears everything and shows "agent working". It also
+  fires for scheduled tasks and subagent reports, and the agent is working
+  again in those cases too.
+
+**Steps.** `plan` replaces the step list and resets the current step. `step N`
+moves the marker, `step done` finishes the last one, and a number past the end
+is an error.
+
+**Reminder.** One nudge per session, sent with a tool result when files have
+changed and the board has no goal. That hook is synchronous and holds a file
+lock while it reads and writes, because hooks for parallel tool calls run at
+the same time.
+
 ## Alternatives and why they lost
 
 | Alternative | What it gains | Why not |
@@ -90,6 +128,9 @@ Checked against the official pages on 2026-11-10:
 - Claude Code tools reference
   (<https://code.claude.com/docs/en/tools-reference>): the task tools are on
   by default only on older models.
+- Claude Code permissions (<https://code.claude.com/docs/en/permissions>): a
+  rule for a command that runs its arguments "matches whatever comes after";
+  `PermissionRequest` carries the tool name and input but no tool-use id.
 - Codex hooks (<https://learn.chatgpt.com/docs/hooks>): same core fields
   (`session_id`, `hook_event_name`, `tool_name`, `tool_input`); file edits
   arrive as `apply_patch`; no `StopFailure`; new or changed hooks are skipped
@@ -110,12 +151,23 @@ These must be tested on a real Codex session before the Codex adapter is built:
 - whether Codex sets `CODEX_THREAD_ID` (or any session id) for shell commands
 - whether the Codex sandbox lets a command write under the home folder
 
+And on a real Claude Code session:
+
+- whether choosing "don't ask again" on a `check` prompt saves a broad
+  `sessionbeat check` rule. If it does, the README must warn against it.
+
 ## Known limits
 
 - The board is only as true as the agent keeps it. This is the main risk and
   is measured (see below), not assumed.
 - A file changed by a shell command is not seen, so the "files changed since
   the check" flag can miss it.
+- If the agent runs its tests directly and not through `check`, the goal shows
+  "no check". The compliance test counts how often that happens.
+- When the user interrupts a turn, no `Stop` event fires, so the board keeps
+  showing "agent working" until the next event.
+- A check that outlives the agent's command timeout is moved to the
+  background and its result arrives late.
 - `/clear` and forks create a new session id and therefore a new board.
 - The agent can write to the log file. The board is a view, not an audit record.
 - No Windows support in the first release.
