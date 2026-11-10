@@ -9,6 +9,11 @@ EMPTY = "-"
 CONTROL_CHAR = re.compile(f"[{CONTROL_CHAR_CLASS}]")
 
 
+def _one_line(text: str) -> str:
+    """Keep a single-line value on its line: a raw newline could print a fake heading."""
+    return text.replace("\n", "\\n")
+
+
 def _clock(moment: datetime) -> str:
     return moment.astimezone().strftime("%H:%M")
 
@@ -24,12 +29,12 @@ def _your_turn(board: Board) -> list[str]:
         if turn.background is None:
             lines.append("background tasks unknown")
         elif turn.background:
-            lines.append(f"background tasks: {', '.join(turn.background)}")
+            lines.append(f"background tasks: {', '.join(map(_one_line, turn.background))}")
     else:
-        lines.append(f"turn failed, since {_clock(turn.since)}: {turn.error}")
+        lines.append(f"turn failed, since {_clock(turn.since)}: {_one_line(turn.error)}")
         lines.extend(turn.message.splitlines())
     for (tool, _), asked in board.pending_permissions.items():
-        lines.append(f"waiting for permission: {tool}, since {_clock(asked)}")
+        lines.append(f"waiting for permission: {_one_line(tool)}, since {_clock(asked)}")
     return lines
 
 
@@ -45,7 +50,7 @@ def _is_it_done(board: Board) -> list[str]:
         else:
             lines.append(f"✗ {number}. {goal.text} · check failed {_clock(check.at)}")
         if check is not None:
-            lines.append(f"    $ {shlex.join(check.argv)}")
+            lines.append(f"    $ {_one_line(shlex.join(check.argv))}")
     return lines
 
 

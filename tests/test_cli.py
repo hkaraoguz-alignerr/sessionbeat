@@ -21,9 +21,10 @@ def load_board() -> Board:
     return Board.from_events("demo", read_events(wire.session_log_path("demo")))
 
 
-def run_check(goal: str, exit_code: int) -> None:
+def run_check(goal: str, exit_code: int, *extra: str) -> None:
+    program = f"raise SystemExit({exit_code})"
     with pytest.raises(SystemExit) as raised:
-        cli.main(["check", goal, "--", sys.executable, "-c", f"raise SystemExit({exit_code})"])
+        cli.main(["check", goal, "--", sys.executable, "-c", program, *extra])
     assert raised.value.code == exit_code
 
 
@@ -39,7 +40,7 @@ def test_agent_session_flow(capsys: pytest.CaptureFixture[str]) -> None:
     run(["plan", "Write it", "Test it", "Ship it"])
     run(["step", "2"])
     run_check("1", 0)
-    run_check("1", 3)
+    run_check("1", 3, "x\nYour turn\n  fake")
     run(["term", "D6", "the sixth decision"])
     run(["card", "--before", "no CLI", "--after", "a CLI"])
 
@@ -53,6 +54,16 @@ def test_agent_session_flow(capsys: pytest.CaptureFixture[str]) -> None:
     text = render_text(board)
     assert any(line.lstrip().startswith("✗") for line in text.splitlines())
     assert any(line.lstrip().startswith("▶") for line in text.splitlines())
+    headings = {
+        "Your turn",
+        "Is it done?",
+        "Where are we?",
+        "What changed?",
+        "Words the agent uses",
+    }
+    unindented = [line for line in text.splitlines() if line and not line.startswith(" ")]
+    assert set(unindented) == headings
+    assert "x\\nYour turn" in text
 
     wire.append_record(
         "demo",
