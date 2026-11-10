@@ -146,10 +146,22 @@ Checked against the official pages on 2026-11-10:
 
 ## Not verified yet
 
-These must be tested on a real Codex session before the Codex adapter is built:
+Tested on Codex CLI 0.167.0 with the `workspace-write` sandbox on 2026-11-10:
 
-- whether Codex sets `CODEX_THREAD_ID` (or any session id) for shell commands
-- whether the Codex sandbox lets a command write under the home folder
+- Codex sets both `CODEX_THREAD_ID` and `CODEX_SESSION_ID` (same value) for
+  shell commands. Verified.
+- A shell command cannot write under the home folder: `mkdir` there failed
+  with "Operation not permitted". The sandbox allows the working folder,
+  `/tmp` and `$TMPDIR`. So on Codex the agent commands cannot write to
+  `~/.sessionbeat` as it stands. The Codex install step has to solve this,
+  most likely by adding the folder to Codex's writable roots.
+- When Codex is started from inside a Claude Code session it inherits
+  `CLAUDE_CODE_SESSION_ID` as well. When both are set, the Codex id must win.
+
+Still to test before the Codex adapter is built:
+
+- whether Codex hooks run inside the same sandbox
+- whether Codex's config can add a writable folder outside the workspace
 
 And on a real Claude Code session:
 
