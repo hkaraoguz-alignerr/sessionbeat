@@ -1,19 +1,19 @@
 # Roadmap
 
 The design is in [ADR 0001](docs/adr/0001-status-board-design.md). Items are
-in build order. Each one ships with its tests.
+in build order. Each one ships with its tests. Steps 1 to 5 are built.
 
 ## First release
 
-1. **Project setup**: `uv` project, `ruff` and `mypy` in pre-commit.
-2. **Codex unknowns**: on a real Codex session, confirm the session id
+1. ✅ **Project setup**: `uv` project, `ruff` and `mypy` in pre-commit.
+2. ✅ **Codex unknowns**: on a real Codex session, confirm the session id
    variable for shell commands and that a command can write under the home
    folder. Record the result in the ADR.
-3. **Event model and board**: the event types, the per-session log reader, and
+3. ✅ **Event model and board**: the event types, the per-session log reader, and
    `Board.apply`.
-4. **Hook entry point and Claude Code adapter**: standard library only; measure
+4. ✅ **Hook entry point and Claude Code adapter**: standard library only; measure
    the hook cost over 200 runs.
-5. **Agent commands**: `goal`, `plan`, `step`, `check`, `term`, `card`, with
+5. ✅ **Agent commands**: `goal`, `plan`, `step`, `check`, `term`, `card`, with
    length limits.
 6. **Counters**: hook cost, agent cost and reminder count, so the acceptance
    tests can be run before the page is polished.
@@ -32,4 +32,6 @@ in build order. Each one ships with its tests.
 - Adapters for Cursor, Copilot CLI and OpenCode.
 - See file changes made by shell commands.
 - Join the boards of one task across `/clear` and forked sessions.
+- Count notebook edits as file changes.
+- Show the date for checks and turns that are not from today.
 - Windows support.
