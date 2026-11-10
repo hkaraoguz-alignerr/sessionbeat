@@ -118,6 +118,9 @@ def _describe(error: ValidationError) -> str:
     for problem in error.errors():
         field = ".".join(str(part) for part in problem["loc"])
         value = problem["input"]
+        if problem["type"] == "string_pattern_mismatch":
+            lines.append(f"{field} must be one line with no control characters")
+            continue
         size = f" (got {len(value)} characters)" if isinstance(value, str) else f" (got {value!r})"
         lines.append(f"{field}: {problem['msg']}{size}")
     return "\n".join(lines)
@@ -197,7 +200,11 @@ def _card(args: argparse.Namespace) -> int:
 
 def _latest_session_id() -> str:
     sessions = wire.home() / "sessions"
-    logs = sorted(sessions.glob("*.jsonl"), key=lambda path: path.stat().st_mtime)
+    # A refused first command leaves an empty log behind (the lock creates it).
+    logs = sorted(
+        (path for path in sessions.glob("*.jsonl") if path.stat().st_size > 0),
+        key=lambda path: path.stat().st_mtime,
+    )
     if not logs:
         raise Refusal(f"no session logs found in {sessions}")
     return logs[-1].stem
