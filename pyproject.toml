@@ -1,0 +1,37 @@
+[project]
+name = "sessionbeat"
+version = "0.1.0"
+description = "A local status board that shows where a coding agent's task stands."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = ["pydantic>=2"]
+
+[project.scripts]
+sessionbeat = "sessionbeat.cli:main"
+sessionbeat-hook = "sessionbeat.hook:main"
+
+[dependency-groups]
+dev = ["pytest", "ruff", "mypy", "pre-commit"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sessionbeat"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+strict = true
+plugins = ["pydantic.mypy"]
+files = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
