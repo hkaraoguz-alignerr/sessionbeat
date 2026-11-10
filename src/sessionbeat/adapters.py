@@ -9,11 +9,12 @@ Fact = tuple[Kind, dict[str, object]]
 FILE_EDIT_TOOLS = frozenset({"Edit", "Write"})
 
 
-def _str(container: dict[str, object], key: str) -> str:
+def string_field(container: dict[str, object], key: str) -> str:
     value = container[key]
     if not isinstance(value, str):
         raise TypeError(f"Payload key {key!r} must be a string, got {type(value).__name__}")
-    return value
+    # A lone surrogate (half an emoji) cannot be stored as UTF-8 and would break reading the log.
+    return value.encode("utf-8", "surrogatepass").decode("utf-8", "replace")
 
 
 def _dict(container: dict[str, object], key: str) -> dict[str, object]:
@@ -49,14 +50,14 @@ def _background(payload: dict[str, object]) -> list[str] | None:
 
 
 def claude_code_fact(payload: dict[str, object]) -> Fact | None:
-    event = _str(payload, "hook_event_name")
+    event = string_field(payload, "hook_event_name")
     if event == "SessionStart":
         return Kind.SESSION_STARTED, {
-            "cwd": _str(payload, "cwd"),
-            "source": _str(payload, "source"),
+            "cwd": string_field(payload, "cwd"),
+            "source": string_field(payload, "source"),
         }
     if event == "Stop":
-        last_message, truncated = cut(_str(payload, "last_assistant_message"))
+        last_message, truncated = cut(string_field(payload, "last_assistant_message"))
         return Kind.TURN_ENDED, {
             "last_message": last_message,
             "truncated": truncated,
@@ -65,19 +66,19 @@ def claude_code_fact(payload: dict[str, object]) -> Fact | None:
     if event == "StopFailure":
         message = ""
         if "last_assistant_message" in payload:
-            message, _ = cut(_str(payload, "last_assistant_message"))
-        return Kind.TURN_FAILED, {"error": _str(payload, "error"), "message": message}
+            message, _ = cut(string_field(payload, "last_assistant_message"))
+        return Kind.TURN_FAILED, {"error": string_field(payload, "error"), "message": message}
     if event == "PermissionRequest":
         return Kind.PERMISSION_ASKED, {
-            "tool": _str(payload, "tool_name"),
+            "tool": string_field(payload, "tool_name"),
             "input_key": input_key(_dict(payload, "tool_input")),
         }
     if event in ("PostToolUse", "PostToolUseFailure"):
-        tool = _str(payload, "tool_name")
+        tool = string_field(payload, "tool_name")
         tool_input = _dict(payload, "tool_input")
         path = None
         if event == "PostToolUse" and tool in FILE_EDIT_TOOLS:
-            path = _str(tool_input, "file_path")
+            path = string_field(tool_input, "file_path")
         return Kind.TOOL_FINISHED, {"tool": tool, "input_key": input_key(tool_input), "path": path}
     if event == "UserPromptSubmit":
         return Kind.USER_ANSWERED, {}

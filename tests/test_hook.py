@@ -32,7 +32,7 @@ def test_payload_sequence_becomes_board(tmp_path, monkeypatch):
         {
             **base,
             "hook_event_name": "Stop",
-            "last_assistant_message": "done",
+            "last_assistant_message": "done \ud83d half",
             "background_tasks": [{"description": "dev server"}],
         },
         {**base, "hook_event_name": "UserPromptSubmit", "prompt": "next"},
@@ -57,9 +57,16 @@ def test_payload_sequence_becomes_board(tmp_path, monkeypatch):
 
 def test_hook_does_not_import_pydantic():
     result = subprocess.run(
-        [sys.executable, "-c", "import sessionbeat.hook, sys; print('pydantic' in sys.modules)"],
+        [
+            sys.executable,
+            "-c",
+            "import sessionbeat.hook, sys; "
+            "banned = ['pydantic', *(f'sessionbeat.{m}' for m in "
+            "('events', 'board', 'eventlog', 'cli', 'show'))]; "
+            "print([m for m in banned if m in sys.modules])",
+        ],
         capture_output=True,
         text=True,
         check=True,
     )
-    assert result.stdout.strip() == "False"
+    assert result.stdout.strip() == "[]"
