@@ -30,6 +30,7 @@ USAGE_EXIT = 2
 NOT_STARTED_EXIT = 127
 # `check` runs one program with no shell, so these would run in a child and record a lie.
 SHELL_BUILTINS = ("cd", "export", "source", ".")
+SHELL_PROGRAMS = frozenset({"sh", "bash", "zsh", "dash", "ksh", "fish"})
 ENV_ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 _E = TypeVar("_E", bound=EventBase)
 NO_SESSION_MESSAGE = "no agent session found ({names} is not set)"
@@ -163,6 +164,11 @@ def _check(args: argparse.Namespace) -> int:
         raise Refusal(
             f'check cannot run "{first}": check runs one program with no shell, '
             "so shell syntax would record the wrong result"
+        )
+    if os.path.basename(first) in SHELL_PROGRAMS:
+        raise Refusal(
+            f'check cannot run "{first}": a shell wrapper hides which program was run, '
+            "so run the program itself"
         )
     try:
         returncode = subprocess.run(command).returncode

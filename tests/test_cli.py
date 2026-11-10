@@ -71,6 +71,7 @@ def test_agent_session_flow(capsys: pytest.CaptureFixture[str]) -> None:
     [
         (["check", "1", "--", "cd", "x"], True),
         (["check", "1", "--", "FOO=1", "pytest"], True),
+        (["check", "1", "--", "bash", "-c", "true"], True),
         (["check", "9", "--", "true"], True),
         (["step", "9"], True),
         (["goal", "x" * 121], True),
