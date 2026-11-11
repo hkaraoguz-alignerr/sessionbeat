@@ -75,7 +75,10 @@ from one person over five weeks. The ranking is a guide, not a measurement.
   arguments.
 - `check` starts the command with no shell and refuses `cd`, `export`,
   `source`, `.` and `NAME=value` as the command name. Otherwise
-  `check 1 -- cd x && pytest` would record the exit code of `cd` alone.
+  `check 1 -- cd x && pytest` would record the exit code of `cd` alone. It
+  also refuses shell programs (`sh`, `bash`, `zsh`, `dash`, `ksh`, `fish`).
+  These refusals guard against accidents. They do not stop an agent that is
+  trying to cheat.
 - `check` passes output straight through, exits with the command's own exit
   code, and writes its event only when the command finishes. The board shows
   the exact command next to the result.
@@ -146,10 +149,22 @@ Checked against the official pages on 2026-11-10:
 
 ## Not verified yet
 
-These must be tested on a real Codex session before the Codex adapter is built:
+Tested on Codex CLI 0.167.0 with the `workspace-write` sandbox on 2026-11-10:
 
-- whether Codex sets `CODEX_THREAD_ID` (or any session id) for shell commands
-- whether the Codex sandbox lets a command write under the home folder
+- Codex sets both `CODEX_THREAD_ID` and `CODEX_SESSION_ID` (same value) for
+  shell commands. Verified.
+- A shell command cannot write under the home folder: `mkdir` there failed
+  with "Operation not permitted". The sandbox allows the working folder,
+  `/tmp` and `$TMPDIR`. So on Codex the agent commands cannot write to
+  `~/.sessionbeat` as it stands. The Codex install step has to solve this,
+  most likely by adding the folder to Codex's writable roots.
+- When Codex is started from inside a Claude Code session it inherits
+  `CLAUDE_CODE_SESSION_ID` as well. When both are set, the Codex id must win.
+
+Still to test before the Codex adapter is built:
+
+- whether Codex hooks run inside the same sandbox
+- whether Codex's config can add a writable folder outside the workspace
 
 And on a real Claude Code session:
 
@@ -170,6 +185,10 @@ And on a real Claude Code session:
   background and its result arrives late.
 - `/clear` and forks create a new session id and therefore a new board.
 - The agent can write to the log file. The board is a view, not an audit record.
+- A corrupt line in the middle of a log stops that session's board from being
+  built. A half-written last line is skipped, but the next write joins onto it.
+- Agent-written text cannot contain control characters, and the text view
+  shows any control character from other sources in escaped form.
 - No Windows support in the first release.
 
 ## How we will know it works
